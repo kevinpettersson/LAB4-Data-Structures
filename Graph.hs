@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Redundant where" #-}
+{-# HLINT ignore "Use newtype instead of data" #-}
 module Graph
   ( -- * Edge
     Edge                    -- type
@@ -22,51 +23,64 @@ import Data.Maybe
 -- An edge with a source and destination node (of type a), 
 -- together with a label of type b
 data Edge a b = Edge
-  { src   :: a  -- ^ Source vertex
-  , dst   :: a  -- ^ Destination vertex
-  , label :: b  -- ^ The label
+  { src   :: a  -- ^ Source node (vertex) 
+  , dst   :: a  -- ^ Destination node (vertex)
+  , label :: b  -- ^ The label (weight)
   } deriving Show
 
+-- TODO: implement a graph with adjacency lists, hint: use a Map.
 -- A graph with nodes of type a and labels of type b.
-data Graph a b = Graph
-  { adjencyList :: Map a [Edge a b]
-  } deriving Show
-  -- TODO: implement a graph with adjacency lists, hint: use a Map.
+-- A Graph is parametrized on two types, consist of an Map that maps nodes of type a togheter with a list of edges.
+data Graph a b = Graph { adjencyList :: Map a [Edge a b] } deriving Show
 
--- | Create an empty graph
+-- Returns a Graph with an empty Map using Map.empty function.
+-- | Complexity: O()
 empty :: Graph a b
 empty = Graph M.empty
 
 -- | Add a vertex (node) to a graph
--- Använder guard för att undvika pontentiell överskrivning
+-- Function checks so the node dosent already exist in the map and then inserts the node togheter with an empty list into the graph.
+-- | Complexity: O()
 addVertex :: Ord a => a -> Graph a b -> Graph a b
 addVertex v g 
   | M.notMember v (adjencyList g) = g { adjencyList = M.insert v [] (adjencyList g) }
-  | otherwise                         = g
+  | otherwise                     = g
 
 -- | Add a list of vertices to a graph
+-- Checks each element in the list if it's key already exist, if not we recursivly call the function with the new resulted graph.
+-- | Complexity: O()
 addVertices :: Ord a => [a] -> Graph a b -> Graph a b
-addVertices vs g = undefined
+addVertices [] g                  = g
+addVertices (v:vs) g
+  | M.notMember v (adjencyList g) = addVertices vs (addVertex v g)
+  | otherwise                     = addVertices vs g
+
 
 -- | Add an edge to a graph, the first parameter is the start vertex (of type a), 
 -- the second parameter the destination vertex, and the third parameter is the
 -- label (of type b)
+-- | Complexity: O()
 addEdge :: Ord a => a -> a -> b -> Graph a b -> Graph a b
 addEdge v w l = undefined
 
 -- | Add an edge from start to destination, but also from destination to start,
 -- with the same label.
+-- | Complexity: O()
 addBiEdge :: Ord a => a -> a -> b -> Graph a b -> Graph a b
 addBiEdge v w l = undefined
 
 -- | Get all adjacent vertices (nodes) for a given node
+-- | Complexity: O()
 adj :: Ord a => a -> Graph a b -> [Edge a b]
 adj v g = undefined
 
 -- | Get all vertices (nodes) in a graph
+-- | Complexity: O()
 vertices :: Graph a b -> [a]
 vertices g = undefined
 
 -- | Get all edges in a graph
+-- | Complexity: O()
 edges :: Graph a b -> [Edge a b]
 edges g = undefined
+
