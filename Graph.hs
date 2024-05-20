@@ -34,53 +34,61 @@ data Edge a b = Edge
 data Graph a b = Graph { adjencyList :: Map a [Edge a b] } deriving Show
 
 -- Returns a Graph with an empty Map using Map.empty function.
--- | Complexity: O()
+-- | Complexity: O(1)
 empty :: Graph a b
 empty = Graph M.empty
 
 -- | Add a vertex (node) to a graph
 -- Function checks so the node dosent already exist in the map and then inserts the node togheter with an empty list into the graph.
--- | Complexity: O()
+-- | Complexity: O(log n)
 addVertex :: Ord a => a -> Graph a b -> Graph a b
-addVertex v g 
+addVertex v g
   | M.notMember v (adjencyList g) = g { adjencyList = M.insert v [] (adjencyList g) }
   | otherwise                     = g
 
 -- | Add a list of vertices to a graph
 -- Checks each element in the list if it's key already exist, if not we recursivly call the function with the new resulted graph.
--- | Complexity: O()
+-- | Complexity: O(log n)
 addVertices :: Ord a => [a] -> Graph a b -> Graph a b
 addVertices [] g                  = g
 addVertices (v:vs) g
   | M.notMember v (adjencyList g) = addVertices vs (addVertex v g)
   | otherwise                     = addVertices vs g
 
-
 -- | Add an edge to a graph, the first parameter is the start vertex (of type a), 
 -- the second parameter the destination vertex, and the third parameter is the
 -- label (of type b)
--- | Complexity: O()
+-- Function uses record syntax and adjust the the edge list of node v by using the cons operator with the new edge.
+-- | Complexity: O(log n)
 addEdge :: Ord a => a -> a -> b -> Graph a b -> Graph a b
-addEdge v w l = undefined
+addEdge v w l g = g {adjencyList = M.adjust (edge :) v (adjencyList g)}
+  where
+    edge        = Edge {src = v, dst = w, label = l}
 
 -- | Add an edge from start to destination, but also from destination to start,
 -- with the same label.
--- | Complexity: O()
+-- The function calls the addEdge function to add an edge then calls the addEdge function again on  the result of the first call.
+-- Since the addEdge function returns the new graph, all that is neeed is switch the order of the given dst and src nodes on the second call.
+-- | Complexity: O(log n)
 addBiEdge :: Ord a => a -> a -> b -> Graph a b -> Graph a b
-addBiEdge v w l = undefined
+addBiEdge v w l g = addEdge w v l (addEdge v w l g) 
 
 -- | Get all adjacent vertices (nodes) for a given node
--- | Complexity: O()
+-- | Complexity: O(log n)
 adj :: Ord a => a -> Graph a b -> [Edge a b]
-adj v g = undefined
+adj v g = M.findWithDefault [] v (adjencyList g)
 
 -- | Get all vertices (nodes) in a graph
--- | Complexity: O()
+-- | Complexity: O(n)
 vertices :: Graph a b -> [a]
-vertices g = undefined
+vertices g = M.keys (adjencyList g)
 
 -- | Get all edges in a graph
--- | Complexity: O()
+-- | Complexity: O(n + m)????
 edges :: Graph a b -> [Edge a b]
-edges g = undefined
+edges g = concat (M.elems (adjencyList g))
+
+-- Check if vertex exists in map
+member :: Ord a => a -> Graph a b -> Bool
+member v (Graph map) = M.member v map
 
