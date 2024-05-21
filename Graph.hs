@@ -1,9 +1,6 @@
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Redundant where" #-}
-{-# HLINT ignore "Use newtype instead of data" #-}
 module Graph
   ( -- * Edge
-    Edge                    -- type
+    Edge(..)                    -- type
   , src, dst, label         -- querying an Edge
 
     -- * Graph
@@ -13,6 +10,7 @@ module Graph
   , addEdge, addBiEdge      -- adding edges (one way or both ways)
   , adj                     -- get adjacent nodes for a given node
   , vertices, edges         -- querying a Graph
+  , member,          
   ) where
 
 import Data.Map (Map)
@@ -84,7 +82,7 @@ vertices :: Graph a b -> [a]
 vertices g = M.keys (adjencyList g)
 
 -- | Get all edges in a graph
--- | Complexity: O(n + m)????
+-- | Complexity: O(2n)  Inte helt säker //OttoPotto
 edges :: Graph a b -> [Edge a b]
 edges g = concat (M.elems (adjencyList g))
 

@@ -9,7 +9,12 @@ module AATree (
   remove,        -- Ord a => a -> AATree a -> AATree a
   size,          -- AATree a -> Int
   height,        -- AATree a -> Int
-  checkTree      -- Ord a => AATree a -> Bool
+  checkTree,     -- Ord a => AATree a -> Bool
+  isEmpty,
+  null,
+  extractMin,
+  singleton
+       
  ) where
 import Debug.Trace (traceEvent)
 import Data.Maybe
@@ -148,10 +153,6 @@ extractMin :: Ord a => AATree (a, b) -> Maybe ((a, b), AATree (a, b))
 extractMin Empty = Nothing
 extractMin (Node lvl v Empty r) = Just (v, r)
 extractMin (Node lvl v l r) = let (Just (minVal, newLeft)) = extractMin l in Just (minVal, Node lvl v newLeft r)
-
-null :: AATree a -> Bool
-null Empty = True
-null _ = False
 
 
 --------------------------------------------------------------------------------
