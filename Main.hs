@@ -1,95 +1,93 @@
-
+{-# LANGUAGE NondecreasingIndentation #-}
 module Main where
 
-import Route
---import RouteGUI           -- Leave this un
-import qualified Graph as G -- Create a module and use a sensible graph representation
+import System.Environment (getArgs)
+import Data.Maybe ( fromJust, isNothing, isJust )
 import Data.PSQueue qualified as Q
-import Data.Map qualified as M
-import System.Environment ( getArgs )
-import Data.Maybe
+import Graph qualified as G
+import Graph (Edge(..))
+import Route
 
-shortestPath :: (Ord a, Ord b, Num b) => G.Graph a b -> a -> a -> Maybe ([a], b)
+-- Returns the fastest path between two nodes.
+shortestPath :: (Ord node, Ord weight, Num weight) => G.Graph node weight -> node -> node -> Maybe ([node], weight)
 shortestPath g from to
-  | not (G.member from g) = Nothing                     -- Return Nothing if start node dosen't exist in the graph,
-  | not (G.member to g)   = Nothing                     -- return Nothing if end node dosen't exist in the graph,
-  | otherwise             = Just (path, weight)         -- otherwise return the tuple consisting of the path and the total cost.
+  | not (G.member to g)   = Nothing                         
+  | not (G.member from g) = Nothing                         
+  | otherwise             = Just (reverse path, weight)     -- Return the path and the total weight of the path taken.
   where
-    map            = dijkstra g from
-    (path, weight) = extractPathAndWeight map from to
-  
-  
-extractPathAndWeight :: (Ord a, Ord b, Num b) => M.Map a (b, a) -> a -> a -> ([a], b)
-extractPathAndWeight distMap start end = case M.lookup end distMap of
-  Just (totalWeight, _)               -> (reverse (buildPath end), totalWeight)
-  Nothing                             -> ([], 0)
+    weight = label (fromJust (Q.lookup to pq))
+    pq     = dijkstra g from
+    path   = getPath pq from to
+
+-- getPath returns the path from source to destination by backtracking through the priority queue.
+getPath :: (Ord a, Ord b, Num b) => Q.PSQ a (Edge a b) -> a -> a -> [a]
+getPath pq from to
+  | isNothing elem = []
+  | from /= to = to : getPath pq from previousNode
+  | otherwise = [to]
   where
-  buildPath node
-    | node == start = [start]
-    | otherwise = node : buildPath (snd (fromJust (M.lookup node distMap)))
+    elem = Q.lookup to pq
+    previousNode = src (fromJust elem)
 
-
-dijkstra :: (Ord a, Ord b, Num b) => G.Graph a b -> a -> M.Map a (b, a)
+-- Dijkstra's algorithm: initiate the recursive helper function if the src node exists in the graph. 
+dijkstra :: (Ord a, Ord b, Num b) => G.Graph a b -> a -> Q.PSQ a (Edge a b)
 dijkstra g from
-  -- If the start node dosent exist in the graph we call the help function by adding the first node to the distance map and the queue
-  | G.member from g = dijkstra' g (M.singleton from (0, from)) (Q.singleton from 0)
-  | otherwise       = error "starting node is not in the input graph"
+  | G.member from g = dijkstra' g (Q.singleton from (Edge from from 0)) Q.empty
+  | otherwise       = Q.empty
 
-
-dijkstra' :: (Ord a, Ord b, Num b) => G.Graph a b -> M.Map a (b, a) -> Q.PSQ a b -> M.Map a (b, a)
-dijkstra' g dmap pq
-  | Q.null pq  = dmap                      -- When the queue is empty function returns the new map,
-  | otherwise  = dijkstra' g dmap' pq'     -- otherwise we recursivly call the dijkstra' func with updated pq and map.
+-- If pq is empty we return the pq with visited nodes. 
+dijkstra' :: (Ord a, Ord b, Num b) => G.Graph a b -> Q.PSQ a (Edge a b) -> Q.PSQ a (Edge a b) -> Q.PSQ a (Edge a b)
+dijkstra' g queue visited
+  | Q.null queue = visited
+  | otherwise    = dijkstra' g newQueue newVisited
   where
-  (next Q.:-> currentDist, pq') = fromJust (Q.minView pq)
-  adjList = G.adj next g
-  (dmap', pq'') = foldr (update currentDist next) (dmap, pq') adjList
+    (currentNode, updatedQueue) = getMinNode queue
+    newVisited                  = Q.insert (Q.key currentNode) (Q.prio currentNode) visited
+    newQueue                    = addNeighbors g updatedQueue newVisited currentNode
 
+-- Get the node with the minimum weight
+getMinNode :: (Ord a, Ord b) => Q.PSQ a (Edge a b) -> (Q.Binding a (Edge a b), Q.PSQ a (Edge a b))
+getMinNode queue = (fromJust (Q.findMin queue), Q.deleteMin queue)
 
-update :: (Ord a, Ord b, Num b) => b -> a -> G.Edge a b -> (M.Map a (b, a), Q.PSQ a b) -> (M.Map a (b, a), Q.PSQ a b)
-update currentDist next (G.Edge _ neighbor weight) (dmap, pq) =
-  let newDist = currentDist + weight
-  in case M.lookup neighbor dmap of
-    Just (oldDist, _)
-      | newDist < oldDist -> (M.insert neighbor (newDist, next) dmap, Q.insert neighbor newDist pq)
-      | otherwise         -> (dmap, pq)
-    Nothing               -> (M.insert neighbor (newDist, next) dmap, Q.insert neighbor newDist pq)
+-- Add or update the neighbors of the current node in the queue
+addNeighbors :: (Ord node, Ord weight, Num weight) => G.Graph node weight -> Q.PSQ node (Edge node weight) -> Q.PSQ node (Edge node weight) -> Q.Binding node (Edge node weight) -> Q.PSQ node (Edge node weight)
+addNeighbors graph queue visited currentNode = foldl (addNeighbor visited currentEdge) queue (G.adj currentName graph)
+  where
+    currentName = Q.key currentNode
+    currentEdge = Q.prio currentNode
 
+-- Add or update a neighbor in the queue if a shorter path is found
+addNeighbor :: (Ord node, Ord weight, Num weight) => Q.PSQ node (Edge node weight) -> Edge node weight -> Q.PSQ node (Edge node weight) -> Edge node weight -> Q.PSQ node (Edge node weight)
+addNeighbor visited currentEdge queue edge
+  | isJust (Q.lookup neighbor visited)                        = queue
+  | isNothing oldEdge || newWeight < label (fromJust oldEdge) = Q.insert neighbor newEdge queue
+  | otherwise                                                 = queue
+  where
+    neighbor  = dst edge
+    newWeight = label edge + label currentEdge
+    oldEdge   = Q.lookup neighbor queue
+    newEdge   = Edge (src edge) neighbor newWeight
 
--- Building a graph with stops and lines
+-- Build the graph from stops and line tables
 buildGraph :: [Stop] -> [LineTable] -> G.Graph String Integer
-buildGraph stops = foldr addLineEdges G.empty
+buildGraph stops = foldr addEdges initialGraph
   where
-    addLineEdges (LineTable _ stops) g = foldr addStopEdge g (zip stops (tail stops))
-    addStopEdge (LineStop s1 t1, LineStop s2 t2) g = G.addEdge s1 s2 t2 (G.addEdge s2 s1 t2 g)
--- Fråga Chat ig
+    initialGraph                                  = foldr (G.addVertex . name) G.empty stops
+    addEdges (LineTable _ stops) graph            = foldr addStopEdge graph (zip stops (drop 1 stops))
+    addStopEdge (LineStop s1 _, LineStop s2 t2) g = G.addEdge s1 s2 t2 (G.addEdge s2 s1 t2 g)
 
- -- TODO: read arguments, build graph, output shortest path
 main :: IO ()
 main = do
-
-  Right stops <- readStops "stops-gbg.txt"
-  Right lines <- readLines "lines-gbg.txt"
-  putStrLn "Ange start hållplats"
-  from <- getLine
-  putStrLn "Ange Destination"
-  to <- getLine
-      
-  let graph = buildGraph stops lines
-  case shortestPath graph from to of
-    Just (path, label) -> putStrLn $ "Shortest path: " ++ unwords path ++ " with label: " ++ show label
-    Nothing -> putStrLn "No path found."
-    --Nothing -> putStrLn "Incorrect input or something idk" Kommenterade ut detta för tillfället för det fkin bråkar
-
-{-
-startGUI :: IO ()
-startGUI = do
-  Right stops <- readStops "your-stops.txt"
-  Right lines <- readLines "your-lines.txt"
-  let graph = undefined -- TODO: build your graph here using stops and lines
-  runGUI stops lines graph shortestPath
--}
-
-
-
-
+  args <- getArgs
+  Right stops <- readStops (head args)
+  Right lines <- readLines (args !! 1)
+  let
+    from = args !! 2
+    to = args !! 3
+    graph = buildGraph stops lines
+    path  = shortestPath graph from to
+  case path of
+    Just (pathList, weight) -> do
+      print weight
+      putStr (unlines pathList)
+    Nothing -> putStrLn "Path doesn't exist"

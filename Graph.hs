@@ -24,7 +24,16 @@ data Edge a b = Edge
   { src   :: a  -- ^ Source node (vertex) 
   , dst   :: a  -- ^ Destination node (vertex)
   , label :: b  -- ^ The label (weight)
-  } deriving Show
+  } deriving (Show, Eq)
+
+
+instance (Ord a, Ord b) => Ord (Edge a b) where
+    compare (Edge s1 d1 w1) (Edge s2 d2 w2) =
+        case compare w1 w2 of
+            EQ -> case compare s1 s2 of
+                    EQ -> compare d1 d2
+                    x -> x
+            x -> x
 
 -- TODO: implement a graph with adjacency lists, hint: use a Map.
 -- A graph with nodes of type a and labels of type b.
