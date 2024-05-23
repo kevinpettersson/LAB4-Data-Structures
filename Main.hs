@@ -11,8 +11,9 @@ import Route
 -- Returns the fastest path between two nodes.
 shortestPath :: (Ord node, Ord weight, Num weight) => G.Graph node weight -> node -> node -> Maybe ([node], weight)
 shortestPath g from to
-  | not (G.member to g)   = Nothing                         
-  | not (G.member from g) = Nothing                         
+  | not (G.member to g)   = Nothing
+  | not (G.member from g) = Nothing
+  | null path             = Just ([], 2147483647)           -- For some reason the nopath test want a empty list and 2147483647
   | otherwise             = Just (reverse path, weight)     -- Return the path and the total weight of the path taken.
   where
     weight = label (fromJust (Q.lookup to pq))
@@ -23,10 +24,10 @@ shortestPath g from to
 getPath :: (Ord a, Ord b, Num b) => Q.PSQ a (Edge a b) -> a -> a -> [a]
 getPath pq from to
   | isNothing elem = []
-  | from /= to = to : getPath pq from previousNode
-  | otherwise = [to]
+  | from /= to     = to : getPath pq from previousNode
+  | otherwise      = [to]
   where
-    elem = Q.lookup to pq
+    elem         = Q.lookup to pq
     previousNode = src (fromJust elem)
 
 -- Dijkstra's algorithm: initiate the recursive helper function if the src node exists in the graph. 
@@ -50,14 +51,15 @@ getMinNode :: (Ord a, Ord b) => Q.PSQ a (Edge a b) -> (Q.Binding a (Edge a b), Q
 getMinNode queue = (fromJust (Q.findMin queue), Q.deleteMin queue)
 
 -- Add or update the neighbors of the current node in the queue
-addNeighbors :: (Ord node, Ord weight, Num weight) => G.Graph node weight -> Q.PSQ node (Edge node weight) -> Q.PSQ node (Edge node weight) -> Q.Binding node (Edge node weight) -> Q.PSQ node (Edge node weight)
-addNeighbors graph queue visited currentNode = foldl (addNeighbor visited currentEdge) queue (G.adj currentName graph)
+addNeighbors :: (Ord a, Ord b, Num b) => G.Graph a b -> Q.PSQ a (Edge a b) -> Q.PSQ a (Edge a b) -> Q.Binding a (Edge a b) -> Q.PSQ a (Edge a b)
+addNeighbors graph queue visited currentNode = 
+    foldl (addNeighbor visited currentEdge) queue (G.adj currentName graph)
   where
     currentName = Q.key currentNode
     currentEdge = Q.prio currentNode
 
 -- Add or update a neighbor in the queue if a shorter path is found
-addNeighbor :: (Ord node, Ord weight, Num weight) => Q.PSQ node (Edge node weight) -> Edge node weight -> Q.PSQ node (Edge node weight) -> Edge node weight -> Q.PSQ node (Edge node weight)
+addNeighbor :: (Ord a, Ord b, Num b) => Q.PSQ a (Edge a b) -> Edge a b -> Q.PSQ a (Edge a b) -> Edge a b -> Q.PSQ a (Edge a b)
 addNeighbor visited currentEdge queue edge
   | isJust (Q.lookup neighbor visited)                        = queue
   | isNothing oldEdge || newWeight < label (fromJust oldEdge) = Q.insert neighbor newEdge queue
@@ -82,8 +84,8 @@ main = do
   Right stops <- readStops (head args)
   Right lines <- readLines (args !! 1)
   let
-    from = args !! 2
-    to = args !! 3
+    from  = args !! 2
+    to    = args !! 3
     graph = buildGraph stops lines
     path  = shortestPath graph from to
   case path of
